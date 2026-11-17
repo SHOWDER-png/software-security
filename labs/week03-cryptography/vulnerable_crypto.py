@@ -1,26 +1,26 @@
-"""
-Week 3 — a small crypto helper with four mistakes. Find them (Tasks 1-2), then compare solution_skeleton.py.
-"""
-import hashlib, random
-from Crypto.Cipher import AES  # pip install pycryptodome
+import os
+import secrets
+from argon2 import PasswordHasher
+from Crypto.Cipher import AES
 
-# Store a user's password
+ph = PasswordHasher()  # Argon2id, random salt per hash
+
 def store_password(pw: str) -> str:
-    return hashlib.md5(pw.encode()).hexdigest()
+    return ph.hash(pw)
 
-# Encrypt data before it is saved
-HARDCODED_KEY = b"0123456789abcdef"
-def encrypt_ecb(data: bytes) -> bytes:
-    cipher = AES.new(HARDCODED_KEY, AES.MODE_ECB)
-    pad = 16 - (len(data) % 16)
-    return cipher.encrypt(data + bytes([pad]) * pad)
+def verify_password(hash_: str, pw: str) -> bool:
+    try:
+        return ph.verify(hash_, pw)
+    except Exception:
+        return False
 
-# Make a password-reset token
+def encrypt_gcm(data: bytes, key: bytes) -> tuple[bytes, bytes, bytes]:
+    if len(key) not in (16, 24, 32):
+        raise ValueError("AES key must be 16, 24, or 32 bytes")
+    nonce = os.urandom(12)
+    cipher = AES.new(key, AES.MODE_GCM, nonce=nonce)
+    ciphertext, tag = cipher.encrypt_and_digest(data)
+    return nonce, ciphertext, tag
+
 def reset_token() -> str:
-    return "".join(random.choice("0123456789") for _ in range(6))
-
-if __name__ == "__main__":
-    print("md5:", store_password("password123"))
-    # Encrypt two identical 16-byte blocks:
-    print("ecb:", encrypt_ecb(b"A"*16 + b"A"*16).hex())
-    print("token:", reset_token())
+    return secrets.token_urlsafe(16)

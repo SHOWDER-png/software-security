@@ -1,38 +1,63 @@
+
 """
-Week 3 — FIX the misuse here. Fill in the TODOs.
+Week 3 — FIX the misuse here.
 pip install argon2-cffi pycryptodome
 """
 import os
+import secrets
 from argon2 import PasswordHasher
 from Crypto.Cipher import AES
 
 ph = PasswordHasher()
 
+
 def store_password(pw: str) -> str:
-    # FIX: argon2id, salted automatically
+    # FIX: Argon2id with automatic salt
     return ph.hash(pw)
 
+
 def verify_password(hash_: str, pw: str) -> bool:
+    # FIX: Verify the Argon2id password hash
     try:
         return ph.verify(hash_, pw)
     except Exception:
         return False
 
+
 def encrypt_gcm(data: bytes, key: bytes) -> tuple[bytes, bytes, bytes]:
-    # FIX: authenticated encryption (AES-GCM), random nonce, key from env/KMS
+    # FIX: AES-GCM with a random 12-byte nonce
+    if len(key) not in (16, 24, 32):
+        raise ValueError("AES key must be 16, 24, or 32 bytes")
+
     nonce = os.urandom(12)
     cipher = AES.new(key, AES.MODE_GCM, nonce=nonce)
-    ct, tag = cipher.encrypt_and_digest(data)
-    return nonce, ct, tag
+    ciphertext, tag = cipher.encrypt_and_digest(data)
+
+    return nonce, ciphertext, tag
+
 
 def reset_token() -> str:
-    # FIX: CSPRNG
-    import secrets
+    # FIX: Cryptographically secure random token
     return secrets.token_urlsafe(16)
 
+
 if __name__ == "__main__":
-    key = bytes.fromhex(os.environ.get("ENC_KEY_HEX", os.urandom(32).hex()))
+    # FIX: Load encryption key from environment
+    key_hex = os.environ.get("ENC_KEY_HEX")
+
+    if not key_hex:
+        raise RuntimeError("Please set ENC_KEY_HEX environment variable")
+
+    key = bytes.fromhex(key_hex)
+
+    if len(key) != 32:
+        raise ValueError("ENC_KEY_HEX must contain a 32-byte AES key")
+
     h = store_password("password123")
+
     print("argon2 ok:", verify_password(h, "password123"))
-    print("gcm:", encrypt_gcm(b"secret", key))
+
+    nonce, ciphertext, tag = encrypt_gcm(b"secret", key)
+    print("gcm encryption successful:", len(nonce), len(ciphertext), len(tag))
+
     print("token:", reset_token())

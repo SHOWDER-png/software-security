@@ -23,11 +23,11 @@ def user():
 def ping():
     host = request.args.get("host", "127.0.0.1")
     # CWE-78: OS command injection (shell=True with user input)
-    return subprocess.check_output("ping -c 1 " + host, shell=True)
+    return subprocess.check_output("ping -c 1 " + host)
 
 def store_password(pw):
     # CWE-327: weak hash for passwords
-    return hashlib.md5(pw.encode()).hexdigest()
+    return hashlib.bcrypt.hashpw(pw.encode(), hashlib.bcrypt.gensalt()).hexdigest()
 
 if __name__ == "__main__":
     app.run(debug=True)  # CWE-489: debug mode in production

@@ -1,14 +1,14 @@
+
 """
 Week 3 — Task 5: move legacy MD5 password records to argon2id, one login at a time.
 Fill in the TODO in login(), then run this file again: every check below should say PASS.
 """
 import hashlib, hmac
-from argon2 import PasswordHasher  # pip install argon2-cffi
+from argon2 import PasswordHasher
 
 ph = PasswordHasher()
 
-# A tiny user table. alice still has a record from the old store_password() in
-# vulnerable_crypto.py (unsalted MD5). bob signed up later and already has argon2id.
+# A tiny user table.
 db = {
     "alice": hashlib.md5(b"password123").hexdigest(),
     "bob": ph.hash("correct horse battery staple"),
@@ -21,12 +21,18 @@ def login(user: str, pw: str) -> bool:
     record = db.get(user)
     if record is None:
         return False
+
     if is_legacy_md5(record):
-        if not hmac.compare_digest(hashlib.md5(pw.encode()).hexdigest(), record):
+        # Verify the password against the legacy MD5 record.
+        candidate = hashlib.md5(pw.encode()).hexdigest()
+
+        if not hmac.compare_digest(candidate, record):
             return False
-        # TODO (Task 5): the password is correct, and only right now do we hold the plaintext.
-        # Replace this user's MD5 record with an argon2id hash of pw. One line: db[user] = ...
+
+        # Upgrade the password record to Argon2id after successful login.
+        db[user] = ph.hash(pw)
         return True
+
     try:
         return ph.verify(record, pw)
     except Exception:
@@ -42,7 +48,9 @@ if __name__ == "__main__":
         ("her next login goes through argon2id", login("alice", "password123") and not is_legacy_md5(db["alice"])),
         ("bob (already argon2id) still logs in", login("bob", "correct horse battery staple")),
     ]
+
     print("alice after: ", db["alice"])
     for name, ok in checks:
         print("PASS" if ok else "FAIL", "-", name)
+
     print("ALL PASS" if all(ok for _, ok in checks) else "Not done yet: fill in the TODO in login().")
